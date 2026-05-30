@@ -10,6 +10,7 @@ using Algos.Insights.Storage.Abstractions;
 using Algos.Insights.Storage.InMemory;
 using Algos.Insights.Storage.JsonFile;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,6 +45,28 @@ public static class AlgosInsightsExtensions
         services.AddSingleton<IAlgosExportService, AlgosExportService>();
         services.AddSingleton<IAlgosAlertService, AlgosAlertService>();
         services.AddSingleton<IAlgosAiProvider, DisabledAlgosAiProvider>();
+        var dashboardRoute = options.Dashboard.Route.Trim('/');
+        services.AddRazorPages(razor =>
+            {
+                razor.Conventions.AddAreaPageRoute("AlgosInsights", "/Index", dashboardRoute);
+                razor.Conventions.AddAreaPageRoute("AlgosInsights", "/Requests", dashboardRoute + "/requests");
+                razor.Conventions.AddAreaPageRoute("AlgosInsights", "/Features", dashboardRoute + "/features");
+                razor.Conventions.AddAreaPageRoute("AlgosInsights", "/Exceptions", dashboardRoute + "/exceptions");
+                razor.Conventions.AddAreaPageRoute("AlgosInsights", "/Dependencies", dashboardRoute + "/dependencies");
+                razor.Conventions.AddAreaPageRoute("AlgosInsights", "/Traces", dashboardRoute + "/traces");
+            })
+            .ConfigureApplicationPartManager(manager =>
+            {
+                var assembly = typeof(AlgosInsightsExtensions).Assembly;
+                var factory = ApplicationPartFactory.GetApplicationPartFactory(assembly);
+                foreach (var part in factory.GetApplicationParts(assembly).Where(part => part.GetType().Name.Contains("CompiledRazorAssemblyPart", StringComparison.Ordinal)))
+                {
+                    if (!manager.ApplicationParts.Any(existing => existing.Name == part.Name && existing.GetType() == part.GetType()))
+                    {
+                        manager.ApplicationParts.Add(part);
+                    }
+                }
+            });
         return services;
     }
 

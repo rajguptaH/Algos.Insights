@@ -1,0 +1,29 @@
+@page
+@model DependenciesModel
+@{
+    ViewData["AlgosPage"] = "dependencies";
+}
+
+<header class="topbar">
+  <div>
+    <div class="eyebrow">Database, HTTP, cache, and custom dependencies</div>
+    <h1>Dependencies</h1>
+  </div>
+</header>
+
+<section class="kpi-grid" id="dependencyKpis"></section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <div>
+      <div class="tiny-label">External operations</div>
+      <h2>Dependency Calls</h2>
+    </div>
+    <div class="inline-count" id="dependencyCount">0 rows</div>
+  </div>
+  <div id="dependencyTable" class="table-host"></div>
+</section>
+
+@section Scripts {
+  <script src="@Model.Route/assets/dependencies.js"></script>
+}

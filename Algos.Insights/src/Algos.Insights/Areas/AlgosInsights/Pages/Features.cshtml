@@ -1,0 +1,49 @@
+@page
+@model FeaturesModel
+@{
+    ViewData["AlgosPage"] = "features";
+}
+
+<header class="topbar">
+  <div>
+    <div class="eyebrow">Module and feature adoption</div>
+    <h1>Feature Usage</h1>
+  </div>
+</header>
+
+<section class="kpi-grid" id="featureKpis"></section>
+
+<div class="dashboard-grid">
+  <section class="panel wide">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Usage</div>
+        <h2>Feature Events</h2>
+      </div>
+      <div class="inline-count" id="featureCount">0 rows</div>
+    </div>
+    <div id="featureTable" class="table-host"></div>
+  </section>
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Modules</div>
+        <h2>Most Used</h2>
+      </div>
+    </div>
+    <div id="moduleUsage" class="stack-list"></div>
+  </section>
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Modules</div>
+        <h2>Least Used</h2>
+      </div>
+    </div>
+    <div id="leastUsage" class="stack-list"></div>
+  </section>
+</div>
+
+@section Scripts {
+  <script src="@Model.Route/assets/features.js"></script>
+}

@@ -13,7 +13,7 @@ builder.Services.AddAlgosInsights(options =>
     options.EnableMetrics = true;
     options.EnableTracing = true;
     options.EnableFeatureUsageTracking = true;
-    options.IgnoreRoutes = ["/health", "/myinsights", "/favicon.ico"];
+    options.IgnoreRoutes = ["/myinsights", "/favicon.ico"];
 
     options.Storage.UseInMemory(memory =>
     {

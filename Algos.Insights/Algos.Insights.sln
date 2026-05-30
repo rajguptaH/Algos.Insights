@@ -5,8 +5,6 @@ VisualStudioVersion = 17.14.37012.4 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Algos.Insights", "src\Algos.Insights\Algos.Insights.csproj", "{287AD06F-940E-4DF8-A265-0D73C66844DF}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Algos.Insights.Tests", "tests\Algos.Insights.Tests\Algos.Insights.Tests.csproj", "{8A173199-DB5E-433D-AD93-D287897A0A44}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Algos.Insights.SampleApi", "samples\Algos.Insights.SampleApi\Algos.Insights.SampleApi.csproj", "{6059D51A-0419-4246-A2FF-0F29E37C779B}"
 EndProject
 Global
@@ -19,10 +17,6 @@ Global
 		{287AD06F-940E-4DF8-A265-0D73C66844DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{287AD06F-940E-4DF8-A265-0D73C66844DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{287AD06F-940E-4DF8-A265-0D73C66844DF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{8A173199-DB5E-433D-AD93-D287897A0A44}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{8A173199-DB5E-433D-AD93-D287897A0A44}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{8A173199-DB5E-433D-AD93-D287897A0A44}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{8A173199-DB5E-433D-AD93-D287897A0A44}.Release|Any CPU.Build.0 = Release|Any CPU
 		{6059D51A-0419-4246-A2FF-0F29E37C779B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{6059D51A-0419-4246-A2FF-0F29E37C779B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6059D51A-0419-4246-A2FF-0F29E37C779B}.Release|Any CPU.ActiveCfg = Release|Any CPU

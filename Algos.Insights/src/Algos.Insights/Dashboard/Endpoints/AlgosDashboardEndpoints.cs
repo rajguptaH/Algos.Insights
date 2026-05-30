@@ -1,4 +1,4 @@
-using System.Net;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Algos.Insights.AI;
@@ -33,6 +33,17 @@ public sealed class AlgosDashboardBuilder
 public static class AlgosDashboardEndpoints
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
+    private static readonly HashSet<string> DashboardAssets = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "dashboard.css",
+        "dashboard-core.js",
+        "overview.js",
+        "requests.js",
+        "features.js",
+        "exceptions.js",
+        "dependencies.js",
+        "traces.js"
+    };
 
     public static IEndpointRouteBuilder MapDashboard(this IEndpointRouteBuilder endpoints, string route, Action<AlgosDashboardBuilder>? configure = null)
     {
@@ -40,20 +51,19 @@ public static class AlgosDashboardEndpoints
         configure?.Invoke(builder);
         var root = "/" + route.Trim('/');
 
-        endpoints.MapGet(root, async context => await RenderPage(context, "overview"));
-        endpoints.MapGet(root + "/requests", async context => await RenderPage(context, "requests"));
-        endpoints.MapGet(root + "/requests/{id}", async context => await RenderPage(context, "request"));
-        endpoints.MapGet(root + "/traces/{traceId}", async context => await RenderPage(context, "trace"));
-        endpoints.MapGet(root + "/features", async context => await RenderPage(context, "features"));
-        endpoints.MapGet(root + "/exceptions", async context => await RenderPage(context, "exceptions"));
         endpoints.MapGet(root + "/api/overview", GetOverview);
         endpoints.MapGet(root + "/api/requests", GetRequests);
+        endpoints.MapGet(root + "/api/requests/{id}", GetRequest);
         endpoints.MapGet(root + "/api/exceptions", GetExceptions);
         endpoints.MapGet(root + "/api/features", GetFeatures);
+        endpoints.MapGet(root + "/api/dependencies", GetDependencies);
+        endpoints.MapGet(root + "/api/analytics", GetAnalytics);
         endpoints.MapGet(root + "/api/traces/{traceId}", GetTrace);
         endpoints.MapGet(root + "/export/requests.json", ExportRequestsJson);
         endpoints.MapGet(root + "/export/requests.csv", ExportRequestsCsv);
         endpoints.MapPost(root + "/api/ai", AskAi);
+        endpoints.MapGet(root + "/assets/{file}", ServeAsset);
+        endpoints.MapRazorPages();
 
         endpoints.ServiceProvider.GetRequiredService<IOptions<AlgosInsightsOptions>>().Value.Dashboard.Route = root;
         if (builder.Username is not null)
@@ -72,18 +82,6 @@ public static class AlgosDashboardEndpoints
         return endpoints;
     }
 
-    private static async Task RenderPage(HttpContext context, string page)
-    {
-        var options = context.RequestServices.GetRequiredService<IOptions<AlgosInsightsOptions>>().Value;
-        if (!Authorize(context, options.Dashboard))
-        {
-            return;
-        }
-
-        context.Response.ContentType = "text/html; charset=utf-8";
-        await context.Response.WriteAsync(Html(options.Dashboard.Title, options.Dashboard.Route, page));
-    }
-
     private static async Task GetOverview(HttpContext context)
     {
         var options = context.RequestServices.GetRequiredService<IOptions<AlgosInsightsOptions>>().Value;
@@ -91,11 +89,32 @@ public static class AlgosDashboardEndpoints
         var store = context.RequestServices.GetRequiredService<IAlgosInsightsStore>();
         var requests = await store.GetRequestsAsync(new AlgosQuery { PageSize = 500 });
         var exceptions = await store.GetExceptionsAsync(new AlgosQuery { PageSize = 50 });
+        var features = await store.GetFeatureUsageAsync(new AlgosQuery { PageSize = 500 });
+        var dependencies = await store.GetDependenciesAsync(new AlgosQuery { PageSize = 500 });
         var total = requests.TotalCount;
         var errors = requests.Items.Count(x => x.StatusCode >= 500);
         var avg = requests.Items.Count == 0 ? 0 : requests.Items.Average(x => x.DurationMs);
         var p95 = Percentile(requests.Items.Select(x => x.DurationMs), 0.95);
-        await context.Response.WriteAsJsonAsync(new { total, errors, errorRate = total == 0 ? 0 : Math.Round(errors * 100d / total, 2), avg, p95, recentCritical = exceptions.Items.Take(5) }, JsonOptions);
+        var statusCodes = requests.Items.GroupBy(x => x.StatusCode).OrderBy(x => x.Key).Select(x => new { statusCode = x.Key, count = x.Count() });
+        var slowest = requests.Items.OrderByDescending(x => x.DurationMs).Take(8);
+        var topEndpoints = requests.Items.GroupBy(x => x.Path).Select(x => new { path = x.Key, count = x.Count(), avgMs = Math.Round(x.Average(r => r.DurationMs), 1), errors = x.Count(r => r.StatusCode >= 500) }).OrderByDescending(x => x.count).Take(8);
+        var topModules = features.Items.GroupBy(x => string.IsNullOrWhiteSpace(x.ModuleName) ? "Unassigned" : x.ModuleName).Select(x => new { module = x.Key, count = x.Count(), avgMs = Math.Round(x.Where(f => f.DurationMs.HasValue).Select(f => (double)f.DurationMs!.Value).DefaultIfEmpty(0).Average(), 1) }).OrderByDescending(x => x.count).Take(8);
+        await context.Response.WriteAsJsonAsync(new
+        {
+            total,
+            errors,
+            errorRate = total == 0 ? 0 : Math.Round(errors * 100d / total, 2),
+            avg = Math.Round(avg, 1),
+            p50 = Percentile(requests.Items.Select(x => x.DurationMs), 0.50),
+            p95,
+            p99 = Percentile(requests.Items.Select(x => x.DurationMs), 0.99),
+            statusCodes,
+            slowest,
+            topEndpoints,
+            topModules,
+            dependencies = dependencies.Items.GroupBy(x => x.DependencyName).Select(x => new { name = x.Key, count = x.Count(), failures = x.Count(d => !d.Success), avgMs = Math.Round(x.Average(d => d.DurationMs), 1) }).OrderByDescending(x => x.avgMs).Take(8),
+            recentCritical = exceptions.Items.Take(5)
+        }, JsonOptions);
     }
 
     private static async Task GetRequests(HttpContext context)
@@ -104,6 +123,31 @@ public static class AlgosDashboardEndpoints
         if (!Authorize(context, options.Dashboard)) return;
         var store = context.RequestServices.GetRequiredService<IAlgosInsightsStore>();
         await context.Response.WriteAsJsonAsync(await store.GetRequestsAsync(Query(context)), JsonOptions);
+    }
+
+    private static async Task GetRequest(HttpContext context)
+    {
+        var options = context.RequestServices.GetRequiredService<IOptions<AlgosInsightsOptions>>().Value;
+        if (!Authorize(context, options.Dashboard)) return;
+        var id = context.Request.RouteValues["id"]?.ToString() ?? "";
+        var store = context.RequestServices.GetRequiredService<IAlgosInsightsStore>();
+        var requests = await store.GetRequestsAsync(new AlgosQuery { PageSize = options.Dashboard.MaxExportRows });
+        var request = requests.Items.FirstOrDefault(x => x.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+        if (request is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        var exceptions = await store.GetExceptionsAsync(new AlgosQuery { PageSize = 500 });
+        var dependencies = await store.GetDependenciesAsync(new AlgosQuery { PageSize = 500 });
+        await context.Response.WriteAsJsonAsync(new
+        {
+            request,
+            exceptions = exceptions.Items.Where(x => x.TraceId == request.TraceId),
+            dependencies = dependencies.Items.Where(x => x.TraceId == request.TraceId),
+            trace = string.IsNullOrWhiteSpace(request.TraceId) ? null : await store.GetTraceTreeAsync(request.TraceId)
+        }, JsonOptions);
     }
 
     private static async Task GetExceptions(HttpContext context)
@@ -120,6 +164,38 @@ public static class AlgosDashboardEndpoints
         if (!Authorize(context, options.Dashboard)) return;
         var store = context.RequestServices.GetRequiredService<IAlgosInsightsStore>();
         await context.Response.WriteAsJsonAsync(await store.GetFeatureUsageAsync(Query(context)), JsonOptions);
+    }
+
+    private static async Task GetDependencies(HttpContext context)
+    {
+        var options = context.RequestServices.GetRequiredService<IOptions<AlgosInsightsOptions>>().Value;
+        if (!Authorize(context, options.Dashboard)) return;
+        var store = context.RequestServices.GetRequiredService<IAlgosInsightsStore>();
+        await context.Response.WriteAsJsonAsync(await store.GetDependenciesAsync(Query(context)), JsonOptions);
+    }
+
+    private static async Task GetAnalytics(HttpContext context)
+    {
+        var options = context.RequestServices.GetRequiredService<IOptions<AlgosInsightsOptions>>().Value;
+        if (!Authorize(context, options.Dashboard)) return;
+        var store = context.RequestServices.GetRequiredService<IAlgosInsightsStore>();
+        var features = (await store.GetFeatureUsageAsync(new AlgosQuery { PageSize = options.Dashboard.MaxExportRows })).Items;
+        var requests = (await store.GetRequestsAsync(new AlgosQuery { PageSize = options.Dashboard.MaxExportRows })).Items;
+        var modules = features.GroupBy(x => string.IsNullOrWhiteSpace(x.ModuleName) ? "Unassigned" : x.ModuleName)
+            .Select(x => new
+            {
+                name = x.Key,
+                count = x.Count(),
+                users = x.Select(f => f.UserId).Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().Count(),
+                avgMs = Math.Round(x.Where(f => f.DurationMs.HasValue).Select(f => (double)f.DurationMs!.Value).DefaultIfEmpty(0).Average(), 1),
+                features = x.GroupBy(f => string.IsNullOrWhiteSpace(f.FeatureName) ? "Unassigned" : f.FeatureName).Select(f => new { name = f.Key, count = f.Count() }).OrderByDescending(f => f.count)
+            })
+            .OrderByDescending(x => x.count)
+            .ToArray();
+        var leastUsed = modules.OrderBy(x => x.count).Take(8);
+        var trends = features.GroupBy(x => x.TimestampUtc.UtcDateTime.Date).OrderBy(x => x.Key).Select(x => new { date = x.Key.ToString("yyyy-MM-dd"), count = x.Count() });
+        var routeModules = requests.GroupBy(x => x.Module ?? "Unassigned").Select(x => new { module = x.Key, requests = x.Count(), errors = x.Count(r => r.StatusCode >= 500), avgMs = Math.Round(x.Average(r => r.DurationMs), 1) }).OrderByDescending(x => x.requests);
+        await context.Response.WriteAsJsonAsync(new { modules, leastUsed, trends, routeModules }, JsonOptions);
     }
 
     private static async Task GetTrace(HttpContext context)
@@ -161,6 +237,21 @@ public static class AlgosDashboardEndpoints
         await context.Response.WriteAsJsonAsync(response, JsonOptions);
     }
 
+    private static async Task ServeAsset(HttpContext context)
+    {
+        var options = context.RequestServices.GetRequiredService<IOptions<AlgosInsightsOptions>>().Value;
+        if (!Authorize(context, options.Dashboard)) return;
+        var file = context.Request.RouteValues["file"]?.ToString() ?? "";
+        if (!DashboardAssets.Contains(file))
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        context.Response.ContentType = file.EndsWith(".css", StringComparison.OrdinalIgnoreCase) ? "text/css; charset=utf-8" : "application/javascript; charset=utf-8";
+        await context.Response.WriteAsync(await ReadResourceAsync("Algos.Insights.Dashboard.Assets." + file));
+    }
+
     private static bool Authorize(HttpContext context, AlgosDashboardOptions options)
     {
         if (AlgosDashboardAuth.IsAuthorized(context, options))
@@ -186,72 +277,13 @@ public static class AlgosDashboardEndpoints
         return sorted[(int)Math.Clamp(Math.Ceiling(percentile * sorted.Length) - 1, 0, sorted.Length - 1)];
     }
 
-    private static string Html(string title, string route, string page)
+    private static async Task<string> ReadResourceAsync(string resourceName)
     {
-        var safeTitle = WebUtility.HtmlEncode(title);
-        return $$"""
-<!doctype html>
-<html lang="en" class="dark">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{safeTitle}}</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config={darkMode:'class'}</script>
-</head>
-<body class="bg-slate-950 text-slate-100">
-  <div class="min-h-screen lg:flex">
-    <aside class="border-b border-slate-800 bg-slate-900/80 p-4 lg:min-h-screen lg:w-64 lg:border-b-0 lg:border-r">
-      <div class="text-xl font-semibold">{{safeTitle}}</div>
-      <nav class="mt-6 grid gap-2 text-sm">
-        <a class="rounded px-3 py-2 hover:bg-slate-800" href="{{route}}">Overview</a>
-        <a class="rounded px-3 py-2 hover:bg-slate-800" href="{{route}}/requests">Request Logs</a>
-        <a class="rounded px-3 py-2 hover:bg-slate-800" href="{{route}}/features">Feature Usage</a>
-        <a class="rounded px-3 py-2 hover:bg-slate-800" href="{{route}}/exceptions">Exceptions</a>
-      </nav>
-    </aside>
-    <main class="flex-1 p-4 lg:p-8">
-      <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-2xl font-semibold capitalize">{{page}}</h1>
-        <div class="flex gap-2 text-sm">
-          <a class="rounded bg-emerald-600 px-3 py-2 hover:bg-emerald-500" href="{{route}}/export/requests.json">JSON</a>
-          <a class="rounded bg-sky-600 px-3 py-2 hover:bg-sky-500" href="{{route}}/export/requests.csv">CSV</a>
-        </div>
-      </div>
-      <section id="stats" class="grid gap-3 md:grid-cols-4"></section>
-      <section class="mt-6 overflow-hidden rounded-lg border border-slate-800 bg-slate-900">
-        <div class="border-b border-slate-800 p-4">
-          <input id="search" class="w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="Search">
-        </div>
-        <div id="content" class="overflow-x-auto"></div>
-      </section>
-    </main>
-  </div>
-<script>
-const route = '{{route}}';
-const page = '{{page}}';
-const fmt = v => v ?? '';
-async function json(url){ const r = await fetch(url); if(!r.ok) throw new Error(r.status); return await r.json(); }
-function stat(label,value){ return `<div class="rounded-lg border border-slate-800 bg-slate-900 p-4"><div class="text-xs uppercase text-slate-400">${label}</div><div class="mt-2 text-2xl font-semibold">${value}</div></div>`; }
-function table(rows, cols){ return `<table class="min-w-full text-sm"><thead class="bg-slate-950 text-left text-slate-400"><tr>${cols.map(c=>`<th class="px-4 py-3">${c}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>`; }
-async function load(){
-  const overview = await json(route + '/api/overview');
-  document.querySelector('#stats').innerHTML = stat('Requests', overview.total) + stat('Errors', overview.errors) + stat('Error rate', overview.errorRate + '%') + stat('P95', overview.p95 + 'ms');
-  let endpoint = page === 'exceptions' ? '/api/exceptions' : page === 'features' ? '/api/features' : '/api/requests';
-  const data = await json(route + endpoint + '?search=' + encodeURIComponent(document.querySelector('#search').value));
-  const rows = data.items.map(x => page === 'exceptions'
-    ? `<tr class="border-t border-slate-800"><td class="px-4 py-3">${fmt(x.timestampUtc)}</td><td class="px-4 py-3">${fmt(x.exceptionType)}</td><td class="px-4 py-3">${fmt(x.message)}</td><td class="px-4 py-3">${fmt(x.traceId)}</td></tr>`
-    : page === 'features'
-    ? `<tr class="border-t border-slate-800"><td class="px-4 py-3">${fmt(x.timestampUtc)}</td><td class="px-4 py-3">${fmt(x.moduleName)}</td><td class="px-4 py-3">${fmt(x.featureName)}</td><td class="px-4 py-3">${fmt(x.userId)}</td></tr>`
-    : `<tr class="border-t border-slate-800"><td class="px-4 py-3">${fmt(x.timestampUtc)}</td><td class="px-4 py-3">${fmt(x.method)}</td><td class="px-4 py-3">${fmt(x.path)}</td><td class="px-4 py-3">${fmt(x.statusCode)}</td><td class="px-4 py-3">${fmt(x.durationMs)}ms</td><td class="px-4 py-3">${fmt(x.traceId)}</td></tr>`).join('');
-  const cols = page === 'exceptions' ? ['Time','Type','Message','Trace'] : page === 'features' ? ['Time','Module','Feature','User'] : ['Time','Method','Path','Status','Duration','Trace'];
-  document.querySelector('#content').innerHTML = table(rows || '<tr><td class="px-4 py-8 text-slate-400" colspan="6">No data yet.</td></tr>', cols);
-}
-document.querySelector('#search').addEventListener('input', () => load());
-load().catch(e => document.querySelector('#content').innerHTML = `<div class="p-6 text-rose-300">${e.message}</div>`);
-</script>
-</body>
-</html>
-""";
+        var assembly = Assembly.GetExecutingAssembly();
+        await using var stream = assembly.GetManifestResourceStream(resourceName) ?? throw new InvalidOperationException($"Dashboard resource '{resourceName}' was not found.");
+        using var reader = new StreamReader(stream, Encoding.UTF8);
+        return await reader.ReadToEndAsync();
     }
+
+    private static string HtmlEncode(string value) => System.Net.WebUtility.HtmlEncode(value);
 }

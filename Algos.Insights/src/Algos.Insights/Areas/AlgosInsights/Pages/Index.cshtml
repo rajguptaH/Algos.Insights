@@ -1,0 +1,101 @@
+@page
+@model OverviewModel
+@{
+    ViewData["AlgosPage"] = "overview";
+}
+
+<header class="topbar">
+  <div>
+    <div class="eyebrow">ASP.NET Core telemetry</div>
+    <h1>Overview</h1>
+  </div>
+  <div class="top-actions">
+    <a class="command-button" href="@Model.Route/export/requests.json">Export JSON</a>
+    <a class="command-button secondary" href="@Model.Route/export/requests.csv">Export CSV</a>
+  </div>
+</header>
+
+<section class="kpi-grid" id="kpiGrid"></section>
+
+<section class="hero-panel">
+  <div>
+    <div class="tiny-label">Production posture</div>
+    <h2 id="healthTitle">Waiting for telemetry</h2>
+    <p id="healthSummary" class="muted">The dashboard refreshes automatically and highlights latency, errors, feature adoption, and dependency pressure.</p>
+  </div>
+  <div class="health-ring">
+    <span id="healthScore">--</span>
+    <small>Health</small>
+  </div>
+</section>
+
+<div class="dashboard-grid">
+  <section class="panel wide" id="primaryPanel">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Traffic</div>
+        <h2>Recent Requests</h2>
+      </div>
+      <a class="inline-link" href="@Model.Route/requests">Open explorer</a>
+    </div>
+    <div id="recentRequests" class="table-host"></div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Status Codes</div>
+        <h2>Distribution</h2>
+      </div>
+    </div>
+    <div id="statusDistribution" class="stack-list"></div>
+  </section>
+
+  <section class="panel" id="modulePanel">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Modules</div>
+        <h2>Most Used</h2>
+      </div>
+    </div>
+    <div id="moduleUsage" class="stack-list"></div>
+  </section>
+
+  <section class="panel" id="leastPanel">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Modules</div>
+        <h2>Least Used</h2>
+      </div>
+    </div>
+    <div id="leastUsage" class="stack-list"></div>
+  </section>
+
+  <section class="panel wide">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Performance</div>
+        <h2>Slow Endpoints and Dependencies</h2>
+      </div>
+    </div>
+    <div class="split-content">
+      <div id="slowEndpoints" class="stack-list"></div>
+      <div id="dependencySummary" class="stack-list"></div>
+    </div>
+  </section>
+
+  <section class="panel wide">
+    <div class="panel-heading">
+      <div>
+        <div class="tiny-label">Exceptions</div>
+        <h2>Recent Critical Issues</h2>
+      </div>
+      <a class="inline-link" href="@Model.Route/exceptions">Review all</a>
+    </div>
+    <div id="criticalIssues" class="stack-list"></div>
+  </section>
+</div>
+
+@section Scripts {
+  <script src="@Model.Route/assets/overview.js"></script>
+}

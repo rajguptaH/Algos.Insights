@@ -1,0 +1,35 @@
+@page
+@model TracesModel
+@{
+    ViewData["AlgosPage"] = "traces";
+}
+
+<header class="topbar">
+  <div>
+    <div class="eyebrow">Trace hierarchy and waterfall</div>
+    <h1>Trace Explorer</h1>
+  </div>
+</header>
+
+<section class="toolbar compact">
+  <div class="search-wrap">
+    <span>Trace ID</span>
+    <input id="traceInput" type="search" value="@Model.TraceId" placeholder="Paste trace id">
+  </div>
+  <button class="command-button" id="loadTraceButton" type="button">Load Trace</button>
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <div>
+      <div class="tiny-label">Hierarchy</div>
+      <h2>Request Flow</h2>
+    </div>
+    <button class="icon-text-button" id="copyTraceButton" type="button">Copy Trace ID</button>
+  </div>
+  <div id="traceHost" class="drawer-body"></div>
+</section>
+
+@section Scripts {
+  <script src="@Model.Route/assets/traces.js"></script>
+}

@@ -1,0 +1,71 @@
+@page
+@model RequestsModel
+@{
+    ViewData["AlgosPage"] = "requests";
+}
+
+<header class="topbar">
+  <div>
+    <div class="eyebrow">Search, filter, sort, inspect</div>
+    <h1>Request Explorer</h1>
+  </div>
+  <div class="top-actions">
+    <a class="command-button" href="@Model.Route/export/requests.json">Export JSON</a>
+    <a class="command-button secondary" href="@Model.Route/export/requests.csv">Export CSV</a>
+  </div>
+</header>
+
+<section class="kpi-grid" id="requestKpis"></section>
+
+<section class="toolbar">
+  <div class="search-wrap">
+    <span>Search</span>
+    <input id="searchInput" type="search" placeholder="Path, trace id, user, module">
+  </div>
+  <label>
+    Method
+    <select id="methodFilter">
+      <option value="">All</option>
+      <option>GET</option>
+      <option>POST</option>
+      <option>PUT</option>
+      <option>PATCH</option>
+      <option>DELETE</option>
+    </select>
+  </label>
+  <label>
+    Status
+    <select id="statusFilter">
+      <option value="">All</option>
+      <option value="2">2xx</option>
+      <option value="3">3xx</option>
+      <option value="4">4xx</option>
+      <option value="5">5xx</option>
+    </select>
+  </label>
+  <label>
+    Sort
+    <select id="sortSelect">
+      <option value="timestampUtc:desc">Newest</option>
+      <option value="durationMs:desc">Slowest</option>
+      <option value="durationMs:asc">Fastest</option>
+      <option value="statusCode:desc">Status high</option>
+      <option value="path:asc">Path A-Z</option>
+    </select>
+  </label>
+</section>
+
+<section class="panel">
+  <div class="panel-heading">
+    <div>
+      <div class="tiny-label">HTTP</div>
+      <h2>Requests</h2>
+    </div>
+    <div class="inline-count" id="requestCount">0 rows</div>
+  </div>
+  <div id="requestTable" class="table-host"></div>
+</section>
+
+@section Scripts {
+  <script src="@Model.Route/assets/requests.js"></script>
+}

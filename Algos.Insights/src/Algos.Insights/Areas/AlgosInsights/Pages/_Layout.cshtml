@@ -1,0 +1,65 @@
+@inject Microsoft.Extensions.Options.IOptions<Algos.Insights.Options.AlgosInsightsOptions> Options
+@{
+    var dashboard = Options.Value.Dashboard;
+    var title = string.IsNullOrWhiteSpace(dashboard.Title) ? "Algos Insights" : dashboard.Title;
+    var route = string.IsNullOrWhiteSpace(dashboard.Route) ? "/myinsights" : dashboard.Route;
+    var pageName = ViewData["AlgosPage"]?.ToString() ?? "overview";
+}
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>@title</title>
+  <link rel="stylesheet" href="@route/assets/dashboard.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">AI</div>
+        <div>
+          <div class="brand-name">@title</div>
+          <div class="brand-subtitle">Observability Console</div>
+        </div>
+      </div>
+      <nav class="nav-list">
+        <a data-nav="overview" href="@route">Overview</a>
+        <a data-nav="requests" href="@route/requests">Requests</a>
+        <a data-nav="features" href="@route/features">Feature Usage</a>
+        <a data-nav="exceptions" href="@route/exceptions">Exceptions</a>
+        <a data-nav="dependencies" href="@route/dependencies">Dependencies</a>
+        <a data-nav="traces" href="@route/traces">Traces</a>
+      </nav>
+      <div class="sidebar-panel">
+        <div class="tiny-label">Live Controls</div>
+        <button class="icon-text-button" id="refreshButton" type="button">Refresh</button>
+        <button class="icon-text-button" id="themeButton" type="button">Toggle Theme</button>
+        <div class="live-status" id="liveStatus">Click Refresh for latest data</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      @RenderBody()
+    </main>
+  </div>
+
+  <aside class="drawer" id="detailDrawer" aria-hidden="true">
+    <div class="drawer-header">
+      <div>
+        <div class="tiny-label">Request Detail</div>
+        <h2 id="drawerTitle">No request selected</h2>
+      </div>
+      <button class="icon-button" id="closeDrawer" type="button" title="Close">x</button>
+    </div>
+    <div id="drawerBody" class="drawer-body"></div>
+  </aside>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    window.AlgosInsightsDashboard = { route: "@route", page: "@pageName", title: "@title" };
+  </script>
+  <script src="@route/assets/dashboard-core.js"></script>
+  @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
