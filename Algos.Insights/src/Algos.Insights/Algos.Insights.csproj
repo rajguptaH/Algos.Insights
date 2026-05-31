@@ -16,12 +16,16 @@
     <Authors>Raj Narayan Gupta</Authors>
     <PackageProjectUrl>https://github.com/rajguptaH</PackageProjectUrl>
     <RepositoryUrl>https://github.com/rajguptaH/Algos.Insights</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageTags>aspnetcore;observability;logging;metrics;tracing;dashboard;razor-pages;monitoring;telemetry;dotnet</PackageTags>
   </PropertyGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <RazorGenerate Include="Areas\**\*.cshtml" />
     <EmbeddedResource Include="Dashboard\Assets\*.css" />
     <EmbeddedResource Include="Dashboard\Assets\*.js" />
+    <None Include="..\..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>

@@ -15,7 +15,7 @@ jobs:
     runs-on: windows-latest
 
     env:
-      PROJECT_PATH: src/Algos.Insights/Algos.Insights.csproj
+      PROJECT_PATH: Algos.Insights/src/Algos.Insights/Algos.Insights.csproj
       PACKAGE_OUTPUT: artifacts/nuget
       NUGET_SOURCE: https://api.nuget.org/v3/index.json
 
@@ -50,13 +50,15 @@ jobs:
         run: dotnet build $env:PROJECT_PATH --configuration Release --no-restore
 
       - name: Pack
-        run: >
-          dotnet pack $env:PROJECT_PATH
-          --configuration Release
-          --no-build
-          --output $env:PACKAGE_OUTPUT
-          -p:PackageVersion=0.1.${{ github.run_number }}
-          -p:ContinuousIntegrationBuild=true
+        run: |
+          $patch = [int]"${{ github.run_number }}" + 3
+          $packageVersion = "2.1.$patch"
+          dotnet pack $env:PROJECT_PATH `
+            --configuration Release `
+            --no-build `
+            --output $env:PACKAGE_OUTPUT `
+            -p:PackageVersion=$packageVersion `
+            -p:ContinuousIntegrationBuild=true
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
