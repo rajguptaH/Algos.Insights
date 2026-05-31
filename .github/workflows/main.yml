@@ -68,8 +68,13 @@ jobs:
 
       - name: Publish to NuGet
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        run: >
-          dotnet nuget push "$env:PACKAGE_OUTPUT/*.nupkg"
-          --api-key "${{ secrets.NUGET_API_KEY }}"
-          --source "$env:NUGET_SOURCE"
-          --skip-duplicate
+        run: |
+          $package = Get-ChildItem -Path $env:PACKAGE_OUTPUT -Filter "*.nupkg" | Select-Object -First 1
+          if (-not $package) {
+            throw "No NuGet package found in $env:PACKAGE_OUTPUT"
+          }
+
+          dotnet nuget push $package.FullName `
+            --api-key "${{ secrets.NUGET_API_KEY }}" `
+            --source "$env:NUGET_SOURCE" `
+            --skip-duplicate

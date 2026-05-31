@@ -18,6 +18,7 @@
     <RepositoryUrl>https://github.com/rajguptaH/Algos.Insights</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageIcon>nuget-icon.png</PackageIcon>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>aspnetcore;observability;logging;metrics;tracing;dashboard;razor-pages;monitoring;telemetry;dotnet</PackageTags>
   </PropertyGroup>
@@ -27,5 +28,6 @@
     <EmbeddedResource Include="Dashboard\Assets\*.css" />
     <EmbeddedResource Include="Dashboard\Assets\*.js" />
     <None Include="..\..\..\README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\assets\nuget-icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
