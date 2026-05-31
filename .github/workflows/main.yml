@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 jobs:
   publish:
@@ -18,6 +19,7 @@ jobs:
       PROJECT_PATH: Algos.Insights/src/Algos.Insights/Algos.Insights.csproj
       PACKAGE_OUTPUT: artifacts/nuget
       NUGET_SOURCE: https://api.nuget.org/v3/index.json
+      GITHUB_PACKAGES_SOURCE: https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
 
     steps:
       - name: Checkout
@@ -77,4 +79,17 @@ jobs:
           dotnet nuget push $package.FullName `
             --api-key "${{ secrets.NUGET_API_KEY }}" `
             --source "$env:NUGET_SOURCE" `
+            --skip-duplicate
+
+      - name: Publish to GitHub Packages
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          $package = Get-ChildItem -Path $env:PACKAGE_OUTPUT -Filter "*.nupkg" | Select-Object -First 1
+          if (-not $package) {
+            throw "No NuGet package found in $env:PACKAGE_OUTPUT"
+          }
+
+          dotnet nuget push $package.FullName `
+            --api-key "${{ secrets.GT_TOKEN }}" `
+            --source "$env:GITHUB_PACKAGES_SOURCE" `
             --skip-duplicate
